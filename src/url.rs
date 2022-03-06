@@ -1,7 +1,6 @@
 extern crate url;
 
 use std::io::{self, Result, ErrorKind};
-use std::error::Error;
 
 pub enum Protocol {
     HTTP,
@@ -20,18 +19,16 @@ impl Url {
         let parsed_url = match url::Url::parse(url) {
             Ok(url) => url,
             Err(e) => {
-                let err = io::Error::new(ErrorKind::InvalidInput,
-                                         e.description());
+                let err = io::Error::new(ErrorKind::InvalidInput, e);
                 return Err(err);
             }
         };
 
-        let protocol = match &*parsed_url.scheme {
+        let protocol = match &*parsed_url.scheme() {
             "http" => Protocol::HTTP,
             "https" => Protocol::HTTPS,
             _ => {
-                let err = io::Error::new(ErrorKind::InvalidInput,
-                                         "The protocol is not supported.");
+                let err = io::Error::new(ErrorKind::InvalidInput, "The protocol is not supported.");
                 return Err(err);
             }
         };
@@ -39,8 +36,7 @@ impl Url {
         let host = match parsed_url.domain() {
             Some(domain) => domain,
             None => {
-                let err = io::Error::new(ErrorKind::InvalidInput,
-                                         "The URL is invalid.");
+                let err = io::Error::new(ErrorKind::InvalidInput, "The URL is invalid.");
                 return Err(err);
             }
         };
@@ -57,22 +53,20 @@ impl Url {
         };
 
         let mut path = String::new();
-        match parsed_url.path() {
-            Some(p) => {
-                for x in p.iter() {
-                    path.push_str(&format!("/{}", x));
-                }
+        path.push_str(parsed_url.path());
+        match parsed_url.query() {
+            Some(q) => {
+                path.push_str("?");
+                path.push_str(q);
             }
-            None => {
-                path.push_str("/");
-            }
-        };
-        
+            None => ()
+        }
+
         return Ok(Url {
             protocol: protocol,
             host: host.to_string(),
             port: port,
-            path: path
+            path: path,
         });
         
     }

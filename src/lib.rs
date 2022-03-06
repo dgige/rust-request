@@ -5,46 +5,50 @@ extern crate openssl;
 mod url;
 pub mod response;
 
+use openssl::ssl::SslConnector;
 use std::io::{self, Write, Read, Result, ErrorKind};
-use std::error::Error;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::net::TcpStream;
 use url::{Protocol, Url};
 use response::Response;
-use openssl::ssl::{SslStream, SslContext};
-use openssl::ssl::SslMethod::Sslv23;
+use openssl::ssl::SslMethod;
 
 pub fn post(url: &str,
             headers: &mut HashMap<String, String>,
             body: &[u8]) -> Result<Response> {
-    return connect("POST", &try!(Url::new(url)), headers, body);
+    return connect("POST", &Url::new(url)?, headers, body);
 }
 
 pub fn get(url: &str,
            headers: &mut HashMap<String, String>) -> Result<Response> {
-    return connect("GET", &try!(Url::new(url)), headers, "".as_bytes());
+    return connect("GET", &Url::new(url)?, headers, "".as_bytes());
 }
 
 pub fn put(url: &str,
             headers: &mut HashMap<String, String>,
             body: &[u8]) -> Result<Response> {
-    return connect("PUT", &try!(Url::new(url)), headers, body);
+    return connect("PUT", &Url::new(url)?, headers, body);
 }
 
 pub fn delete(url: &str,
             headers: &mut HashMap<String, String>) -> Result<Response> {
-    return connect("DELETE", &try!(Url::new(url)), headers, "".as_bytes());
+    return connect("DELETE", &Url::new(url)?, headers, "".as_bytes());
 }
 
 pub fn options(url: &str,
            headers: &mut HashMap<String, String>) -> Result<Response> {
-    return connect("OPTIONS", &try!(Url::new(url)), headers, "".as_bytes());
+    return connect("OPTIONS", &Url::new(url)?, headers, "".as_bytes());
 }
 
 pub fn head(url: &str,
            headers: &mut HashMap<String, String>) -> Result<Response> {
-    return connect("HEAD", &try!(Url::new(url)), headers, "".as_bytes());
+    return connect("HEAD", &Url::new(url)?, headers, "".as_bytes());
+}
+
+pub fn list(url: &str,
+    headers: &mut HashMap<String, String>) -> Result<Response> {
+return connect("LIST", &Url::new(url)?, headers, "".as_bytes());
 }
 
 fn connect(method: &str,
@@ -98,8 +102,7 @@ fn connect(method: &str,
     let mut stream = match TcpStream::connect(&*addr) {
         Ok(stream) => stream,
         Err(e) => {
-            let err = io::Error::new(ErrorKind::NotConnected,
-                                     e.description());
+            let err = io::Error::new(ErrorKind::NotConnected, e);
             return Err(err);
         }
     };
@@ -108,36 +111,33 @@ fn connect(method: &str,
     let raw = match url.protocol {
         Protocol::HTTP => {
             let _ = stream.write(&*buf);
-            let raw = try!(read(&mut stream));
+            let raw = read(&mut stream)?;
             raw
         }
         Protocol::HTTPS => {
-            let context = match SslContext::new(Sslv23) {
-                Ok(context) => context,
-                Err(e) => {
-                    let err = io::Error::new(ErrorKind::NotConnected,
-                                             e.description());
-                    return Err(err);
-                }
-            };
-
-            let mut ssl_stream = match SslStream::new(&context, stream) {
-                Ok(stream) => stream,
-                Err(e) => {
-                    let err = io::Error::new(ErrorKind::NotConnected,
-                                             e.description());
-                    return Err(err);
-                }
-            };
+            let context = match SslConnector::builder(SslMethod::tls()) {
+                    Ok(context) => context.build(),
+                    Err(e) => {
+                        let err = io::Error::new(ErrorKind::NotConnected, e);
+                        return Err(err);
+                    }
+                };
+                let mut ssl_stream = match context.connect(&host, stream) {
+                    Ok(stream) => stream,
+                    Err(e) => {
+                        let err = io::Error::new(ErrorKind::NotConnected, e);
+                        return Err(err);
+                    }
+                };
 
             let _ = ssl_stream.write(&*buf);
-            let raw = try!(read(&mut ssl_stream));
+            let raw = read(&mut ssl_stream)?;
             raw
         }
     };
 
     // response
-    let response = try!(get_response(&raw));
+    let response = get_response(&raw)?;
     
     // redirect
     if response.status_code / 100 == 3 {
@@ -151,7 +151,7 @@ fn connect(method: &str,
         };
 
         // it will support for a relative path
-        return connect(method, &try!(Url::new(&location)), headers, body);
+        return connect(method, &Url::new(&location)?, headers, body);
     }
     
     return Ok(response);
@@ -165,8 +165,7 @@ fn read<S: Read>(stream: &mut S) -> Result<String> {
         let len = match stream.read(&mut buffer) {
             Ok(size) => size,
             Err(e) => {
-                let err = io::Error::new(ErrorKind::NotConnected,
-                                         e.description());
+                let err = io::Error::new(ErrorKind::NotConnected, e);
                 return Err(err);
             }
         };
@@ -176,8 +175,7 @@ fn read<S: Read>(stream: &mut S) -> Result<String> {
         match std::str::from_utf8(&buffer[0 .. len]) {
             Ok(buf) => raw.push_str(buf),
             Err(e) => {
-                let err = io::Error::new(ErrorKind::NotConnected,
-                                         e.description());
+                let err = io::Error::new(ErrorKind::NotConnected, e);
                 return Err(err);
             }
         }
