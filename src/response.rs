@@ -22,13 +22,10 @@ impl Response {
             index += 1;
 
             if index == 1 {
-                let items: Vec<&str> = line.split(" ").collect();
+                let items: Vec<&str> = line.split(' ').collect();
                 if items.len() < 2 { continue; }
                 http_version = items[0].to_string();
-                status_code = match std::str::FromStr::from_str(items[1]) {
-                    Ok(i) => i,
-                    Err(_) => 0
-                };
+                status_code = std::str::FromStr::from_str(items[1]).unwrap_or(0);
                 status_message = Response::get_status_message(status_code);
                 continue;
             }
@@ -39,14 +36,13 @@ impl Response {
             let value = items[1].to_string();
             refined_headers.insert(key, value);
         }
-        let response = Response {
-            http_version: http_version,
-            status_code: status_code,
-            status_message: status_message,
+        Response {
+            http_version,
+            status_code,
+            status_message,
             headers: refined_headers,
             body: body.to_string()
-        };
-        return response;
+        }
     }
 
     fn get_status_message(status_code: u16) -> String {
@@ -108,6 +104,6 @@ impl Response {
             // error
             _ => ""
         };
-        return status_message.to_string();
+        status_message.to_string()
     }
 }

@@ -17,38 +17,38 @@ use openssl::ssl::SslMethod;
 pub fn post(url: &str,
             headers: &mut HashMap<String, String>,
             body: &[u8]) -> Result<Response> {
-    return connect("POST", &Url::new(url)?, headers, body);
+    connect("POST", &Url::new(url)?, headers, body)
 }
 
 pub fn get(url: &str,
            headers: &mut HashMap<String, String>) -> Result<Response> {
-    return connect("GET", &Url::new(url)?, headers, "".as_bytes());
+    connect("GET", &Url::new(url)?, headers, "".as_bytes())
 }
 
 pub fn put(url: &str,
             headers: &mut HashMap<String, String>,
             body: &[u8]) -> Result<Response> {
-    return connect("PUT", &Url::new(url)?, headers, body);
+    connect("PUT", &Url::new(url)?, headers, body)
 }
 
 pub fn delete(url: &str,
             headers: &mut HashMap<String, String>) -> Result<Response> {
-    return connect("DELETE", &Url::new(url)?, headers, "".as_bytes());
+    connect("DELETE", &Url::new(url)?, headers, "".as_bytes())
 }
 
 pub fn options(url: &str,
            headers: &mut HashMap<String, String>) -> Result<Response> {
-    return connect("OPTIONS", &Url::new(url)?, headers, "".as_bytes());
+    connect("OPTIONS", &Url::new(url)?, headers, "".as_bytes())
 }
 
 pub fn head(url: &str,
            headers: &mut HashMap<String, String>) -> Result<Response> {
-    return connect("HEAD", &Url::new(url)?, headers, "".as_bytes());
+    connect("HEAD", &Url::new(url)?, headers, "".as_bytes())
 }
 
 pub fn list(url: &str,
     headers: &mut HashMap<String, String>) -> Result<Response> {
-return connect("LIST", &Url::new(url)?, headers, "".as_bytes());
+    connect("LIST", &Url::new(url)?, headers, "".as_bytes())
 }
 
 fn connect(method: &str,
@@ -60,13 +60,13 @@ fn connect(method: &str,
 
     // host
     let host = match url.protocol {
-        Protocol::HTTP => {
+        Protocol::Http => {
             match url.port {
                 80 => url.host.clone(),
                 _ => format!("{}:{}", url.host, url.port)
             }
         }
-        Protocol::HTTPS => {
+        Protocol::Https => {
             match url.port {
                 443 => url.host.clone(),
                 _ => format!("{}:{}", url.host, url.port)
@@ -79,7 +79,7 @@ fn connect(method: &str,
         Occupied(entry) => { entry.remove(); }
         Vacant(_) => { }
     }
-    headers.insert("Content-Length".to_string(), format!("{}", body.len()).to_string());
+    headers.insert("Content-Length".to_string(), format!("{}", body.len()));
     let mut http_headers = String::new();
     for header in headers.iter() {
         let key = header.0;
@@ -109,12 +109,11 @@ fn connect(method: &str,
 
     // raw
     let raw = match url.protocol {
-        Protocol::HTTP => {
+        Protocol::Http => {
             let _ = stream.write(&*buf);
-            let raw = read(&mut stream)?;
-            raw
+            read(&mut stream)?
         }
-        Protocol::HTTPS => {
+        Protocol::Https => {
             let context = match SslConnector::builder(SslMethod::tls()) {
                     Ok(context) => context.build(),
                     Err(e) => {
@@ -131,8 +130,7 @@ fn connect(method: &str,
                 };
 
             let _ = ssl_stream.write(&*buf);
-            let raw = read(&mut ssl_stream)?;
-            raw
+            read(&mut ssl_stream)?
         }
     };
 
@@ -151,10 +149,10 @@ fn connect(method: &str,
         };
 
         // it will support for a relative path
-        return connect(method, &Url::new(&location)?, headers, body);
+        return connect(method, &Url::new(location)?, headers, body);
     }
     
-    return Ok(response);
+    Ok(response)
 }
 
 fn read<S: Read>(stream: &mut S) -> Result<String> {
@@ -170,7 +168,7 @@ fn read<S: Read>(stream: &mut S) -> Result<String> {
             }
         };
         
-        if len <= 0 { break; }
+        if len == 0 { break; }
         
         match std::str::from_utf8(&buffer[0 .. len]) {
             Ok(buf) => raw.push_str(buf),
@@ -181,7 +179,7 @@ fn read<S: Read>(stream: &mut S) -> Result<String> {
         }
     }
 
-    return Ok(raw);
+    Ok(raw)
 }
 
 fn get_response(raw: &str) -> Result<Response> {
@@ -203,14 +201,14 @@ fn get_response(raw: &str) -> Result<Response> {
     } else {
         let mut index: i64 = 0;
         for chunk in chunked_content_body.iter() {
-            index = index + 1;
+            index += 1;
             if index % 2 != 0 { continue; }
             content_body.push_str(chunk);
         }
     }
 
     let response = Response::new(http_header, &content_body);
-    return Ok(response);
+    Ok(response)
 }
 
 #[test]

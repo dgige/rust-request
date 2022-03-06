@@ -3,8 +3,8 @@ extern crate url;
 use std::io::{self, Result, ErrorKind};
 
 pub enum Protocol {
-    HTTP,
-    HTTPS
+    Http,
+    Https
 }
 
 pub struct Url {
@@ -25,8 +25,8 @@ impl Url {
         };
 
         let protocol = match &*parsed_url.scheme() {
-            "http" => Protocol::HTTP,
-            "https" => Protocol::HTTPS,
+            "http" => Protocol::Http,
+            "https" => Protocol::Https,
             _ => {
                 let err = io::Error::new(ErrorKind::InvalidInput, "The protocol is not supported.");
                 return Err(err);
@@ -44,30 +44,25 @@ impl Url {
         let port = match parsed_url.port() {
             Some(port) => port,
             None => {
-                let port = match protocol {
-                    Protocol::HTTP => 80 as u16,
-                    Protocol::HTTPS => 443 as u16
-                };
-                port
+                match protocol {
+                    Protocol::Http => 80_u16,
+                    Protocol::Https => 443_u16
+                }
             }
         };
 
         let mut path = String::new();
         path.push_str(parsed_url.path());
-        match parsed_url.query() {
-            Some(q) => {
-                path.push_str("?");
-                path.push_str(q);
-            }
-            None => ()
+        if let Some(q) = parsed_url.query() {
+            path.push('?');
+            path.push_str(q);
         }
 
-        return Ok(Url {
-            protocol: protocol,
+        Ok(Url {
+            protocol,
             host: host.to_string(),
-            port: port,
-            path: path,
-        });
-        
+            port,
+            path,
+        })
     }
 }
